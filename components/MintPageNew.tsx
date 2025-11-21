@@ -34,6 +34,7 @@ export default function MintPage() {
   const [eligibility, setEligibility] = useState<EligibilityResponse | null>(null);
   const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
   const [mintCount, setMintCount] = useState(0);
+  const [mintQuantity, setMintQuantity] = useState(1); // Quantity to mint (1-10)
   const [totalSupply] = useState(5000); // Total NFTs in collection (4000 public + 1000 presale)
   const [mintedCount, setMintedCount] = useState(0); // How many have been minted so far
   const [presaleRedeemed, setPresaleRedeemed] = useState(0); // Presale pass redemptions
@@ -42,6 +43,11 @@ export default function MintPage() {
   // Presale pass tracking
   const [presalePassSupply] = useState(1000); // Total presale passes available
   const [presalePassesSold, setPresalePassesSold] = useState(0); // How many passes have been sold
+  
+  // Token purchase
+  const [tokenPurchaseQuantity, setTokenPurchaseQuantity] = useState(1); // Quantity of tokens to buy (1-10)
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseStatus, setPurchaseStatus] = useState<{ type: string; message: string } | null>(null)
 
   // Get balance
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function MintPage() {
     }
   }, [wallet.publicKey]);
 
-  // Mint NFT
+  // Mint NFTs (batch)
   const handleMint = async () => {
     if (!wallet.publicKey || !wallet.signTransaction) {
       setMintStatus({ type: 'error', message: 'Please connect your wallet' });
@@ -116,8 +122,15 @@ export default function MintPage() {
       return;
     }
 
+    // Validate quantity
+    const maxQuantity = Math.min(10, eligibility.remainingRedeems || 10);
+    if (mintQuantity < 1 || mintQuantity > maxQuantity) {
+      setMintStatus({ type: 'error', message: `Please select 1-${maxQuantity} NFTs` });
+      return;
+    }
+
     setIsMinting(true);
-    setMintStatus(null);
+    setMintStatus({ type: 'info', message: `Minting ${mintQuantity} NFT${mintQuantity > 1 ? 's' : ''}...` });
 
     try {
       // Create Metaplex instance
@@ -129,22 +142,46 @@ export default function MintPage() {
         })
       );
 
-      console.log('Minting NFT...');
+      console.log(`Minting ${mintQuantity} NFT(s)...`);
       console.log('Phase:', eligibility.mintPhase);
-      console.log('Price:', eligibility.price, 'SOL');
+      console.log('Price per NFT:', eligibility.price, 'SOL');
+      console.log('Total price:', eligibility.price * mintQuantity, 'SOL');
 
-      // Get metadata for next NFT
-      const metadata = getNextNFTMetadata(mintCount);
-      console.log('Metadata:', metadata);
+      const mintedNFTs = [];
+      const signatures = [];
+      let successCount = 0;
 
-      // Mint the NFT
-      const { nft, signature } = await mintNFT(metaplex, metadata);
+      // Mint NFTs one by one
+      for (let i = 0; i < mintQuantity; i++) {
+        try {
+          setMintStatus({ type: 'info', message: `Minting NFT ${i + 1} of ${mintQuantity}...` });
+          
+          // Get metadata for next NFT
+          const metadata = getNextNFTMetadata(mintCount + i);
+          console.log(`Minting NFT ${i + 1}:`, metadata);
 
-      console.log('NFT minted:', nft.address.toString());
-      console.log('Signature:', signature);
+          // Mint the NFT
+          const { nft, signature } = await mintNFT(metaplex, metadata);
+
+          console.log(`NFT ${i + 1} minted:`, nft.address.toString());
+          console.log('Signature:', signature);
+
+          mintedNFTs.push(nft);
+          signatures.push(signature);
+          successCount++;
+
+        } catch (error: any) {
+          console.error(`Error minting NFT ${i + 1}:`, error);
+          // Continue with remaining mints
+        }
+      }
+
+      if (successCount === 0) {
+        throw new Error('Failed to mint any NFTs');
+      }
 
       // Track if this was a presale or public mint
-      const wasPresaleMint = eligibility.hasPass && !eligibility.hasRedeemed && eligibility.price === 0;
+      const wasPresaleMint = eligibility.hasPass && eligibility.price === 0;
 
       // If presale pass holder, mark as redeemed
       if (wasPresaleMint) {
@@ -154,17 +191,18 @@ export default function MintPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               wallet: wallet.publicKey.toString(),
-              passTokenAccount: '', // We can get this if needed
+              passTokenAccount: '',
               passBalance: eligibility.passBalance,
-              nftMint: nft.address.toString(),
-              txSignature: signature,
+              nftMints: mintedNFTs.map(nft => nft.address.toString()),
+              txSignatures: signatures,
+              quantity: successCount, // Track how many were actually minted
             }),
           });
           
           if (response.ok) {
             const data = await response.json();
-            console.log('Redemption marked:', data);
-            setPresaleRedeemed(presaleRedeemed + 1);
+            console.log('Redemptions marked:', data);
+            setPresaleRedeemed(presaleRedeemed + successCount);
           } else {
             const error = await response.json();
             console.error('Failed to mark redeemed:', error);
@@ -174,16 +212,16 @@ export default function MintPage() {
           // Don't fail the mint if this fails
         }
       } else {
-        setPublicMints(publicMints + 1);
+        setPublicMints(publicMints + successCount);
       }
 
       setMintStatus({
         type: 'success',
-        message: `✅ Success! NFT Minted: ${nft.address.toString()}`,
+        message: `✅ Successfully minted ${successCount} NFT${successCount > 1 ? 's' : ''}!`,
       });
 
-      setMintCount(mintCount + 1);
-      setMintedCount(mintedCount + 1); // Increment minted count
+      setMintCount(mintCount + successCount);
+      setMintedCount(mintedCount + successCount); // Increment minted count
 
       // Refresh balance and eligibility - this should update the UI
       const bal = await connection.getBalance(wallet.publicKey);
@@ -198,6 +236,80 @@ export default function MintPage() {
       setMintStatus({ type: 'error', message: `❌ Failed: ${error.message}` });
     } finally {
       setIsMinting(false);
+    }
+  };
+
+  // Purchase presale pass tokens
+  const handlePurchaseTokens = async () => {
+    if (!wallet.publicKey || !wallet.signTransaction) {
+      setPurchaseStatus({ type: 'error', message: 'Please connect your wallet' });
+      return;
+    }
+
+    if (tokenPurchaseQuantity < 1 || tokenPurchaseQuantity > 10) {
+      setPurchaseStatus({ type: 'error', message: 'Please select 1-10 tokens' });
+      return;
+    }
+
+    setIsPurchasing(true);
+    setPurchaseStatus({ type: 'info', message: `Purchasing ${tokenPurchaseQuantity} token${tokenPurchaseQuantity > 1 ? 's' : ''}...` });
+
+    try {
+      // Get purchase transaction from API
+      const response = await fetch('/api/buy-presale-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          buyerWallet: wallet.publicKey.toString(),
+          quantity: tokenPurchaseQuantity,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create purchase transaction');
+      }
+
+      const data = await response.json();
+      console.log('Purchase data:', data);
+
+      // Deserialize and sign transaction
+      const { Transaction } = await import('@solana/web3.js');
+      const transaction = Transaction.from(Buffer.from(data.transaction, 'base64'));
+      
+      setPurchaseStatus({ type: 'info', message: 'Please approve the transaction...' });
+      const signedTransaction = await wallet.signTransaction(transaction);
+      
+      setPurchaseStatus({ type: 'info', message: 'Sending payment...' });
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+      
+      setPurchaseStatus({ type: 'info', message: 'Confirming payment...' });
+      await connection.confirmTransaction(signature, 'confirmed');
+
+      console.log('Payment confirmed:', signature);
+      
+      setPurchaseStatus({ type: 'info', message: 'Transferring tokens to your wallet...' });
+
+      // Note: In production, you'd call complete-token-purchase from a secure backend
+      // For now, we'll show success and user needs to wait for manual transfer
+      
+      setPurchaseStatus({
+        type: 'success',
+        message: `✅ Payment received! You will receive ${tokenPurchaseQuantity} token${tokenPurchaseQuantity > 1 ? 's' : ''} shortly.`,
+      });
+
+      // Refresh stats
+      await fetchPresaleStats();
+      
+      // Refresh balance
+      const bal = await connection.getBalance(wallet.publicKey);
+      setBalance(bal / LAMPORTS_PER_SOL);
+
+    } catch (error: any) {
+      console.error('Purchase error:', error);
+      setPurchaseStatus({ type: 'error', message: `❌ Failed: ${error.message}` });
+    } finally {
+      setIsPurchasing(false);
     }
   };
 
@@ -383,24 +495,133 @@ export default function MintPage() {
                 {presalePassesSold === presalePassSupply && "🎉 All Passes Sold Out!"}
               </div>
               
-              {/* Buy Presale Pass Button */}
-              <div className="mt-4">
-                <button
-                  disabled={presalePassesSold >= presalePassSupply}
-                  className="w-full font-bold py-4 px-8 rounded-lg text-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
-                  style={{
-                    background: presalePassesSold >= presalePassSupply 
-                      ? 'rgba(255, 193, 7, 0.2)' 
-                      : 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
-                    color: presalePassesSold >= presalePassSupply ? '#a0a0a0' : '#000000',
-                    border: presalePassesSold >= presalePassSupply ? '2px solid rgba(255, 193, 7, 0.3)' : 'none',
-                    boxShadow: presalePassesSold >= presalePassSupply ? 'none' : '0 10px 40px rgba(255, 193, 7, 0.3)',
-                    opacity: presalePassesSold >= presalePassSupply ? 0.5 : 1
-                  }}
-                >
-                  {presalePassesSold >= presalePassSupply ? '🎫 Presale Pass (Sold Out)' : '🎫 Buy Presale Pass'}
-                </button>
-              </div>
+              {/* Buy Presale Pass Section */}
+              {wallet.publicKey && presalePassesSold < presalePassSupply && (
+                <div className="mt-4 space-y-3">
+                  {/* Quantity Selector */}
+                  <div>
+                    <label className="block text-sm font-bold mb-2" style={{ color: '#FFC107' }}>
+                      Quantity (Max 10 per transaction)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setTokenPurchaseQuantity(Math.max(1, tokenPurchaseQuantity - 1))}
+                        disabled={isPurchasing || tokenPurchaseQuantity <= 1}
+                        className="w-10 h-10 rounded-lg font-bold text-lg transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                          background: 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
+                          color: '#000000'
+                        }}
+                      >
+                        -
+                      </button>
+                      
+                      <div className="flex-1 text-center">
+                        <div className="text-3xl font-bold" style={{ color: '#FFC107' }}>
+                          {tokenPurchaseQuantity}
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: '#a0a0a0' }}>
+                          {presalePassSupply - presalePassesSold} available
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          const maxQty = Math.min(10, presalePassSupply - presalePassesSold);
+                          setTokenPurchaseQuantity(Math.min(maxQty, tokenPurchaseQuantity + 1));
+                        }}
+                        disabled={isPurchasing || tokenPurchaseQuantity >= Math.min(10, presalePassSupply - presalePassesSold)}
+                        className="w-10 h-10 rounded-lg font-bold text-lg transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                          background: 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
+                          color: '#000000'
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2 flex gap-2">
+                      {[1, 5, 10].map(qty => {
+                        const maxQty = Math.min(10, presalePassSupply - presalePassesSold);
+                        const isDisabled = qty > maxQty;
+                        return (
+                          <button
+                            key={qty}
+                            onClick={() => setTokenPurchaseQuantity(qty)}
+                            disabled={isPurchasing || isDisabled}
+                            className="flex-1 py-1 rounded-lg font-bold text-xs transition-all hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed"
+                            style={{
+                              background: tokenPurchaseQuantity === qty 
+                                ? 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)'
+                                : 'rgba(255, 193, 7, 0.2)',
+                              color: tokenPurchaseQuantity === qty ? '#000000' : '#FFC107',
+                              border: `2px solid ${tokenPurchaseQuantity === qty ? 'transparent' : 'rgba(255, 193, 7, 0.3)'}`
+                            }}
+                          >
+                            {qty}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Purchase Button */}
+                  <button
+                    onClick={handlePurchaseTokens}
+                    disabled={isPurchasing}
+                    className="w-full font-bold py-4 px-8 rounded-lg text-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+                    style={{
+                      background: isPurchasing 
+                        ? 'rgba(255, 193, 7, 0.5)' 
+                        : 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
+                      color: '#000000',
+                      boxShadow: isPurchasing ? 'none' : '0 10px 40px rgba(255, 193, 7, 0.3)'
+                    }}
+                  >
+                    {isPurchasing 
+                      ? 'Processing...' 
+                      : `🎫 Buy ${tokenPurchaseQuantity} Pass${tokenPurchaseQuantity > 1 ? 'es' : ''} (${(tokenPurchaseQuantity * 0.1).toFixed(1)} SOL)`
+                    }
+                  </button>
+
+                  {/* Purchase Status */}
+                  {purchaseStatus && (
+                    <div className={`p-3 rounded-lg text-sm ${
+                      purchaseStatus.type === 'success' ? 'bg-green-500/20 border border-green-500' :
+                      purchaseStatus.type === 'error' ? 'bg-red-500/20 border border-red-500' :
+                      'bg-blue-500/20 border border-blue-500'
+                    }`}>
+                      {purchaseStatus.message}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sold Out Message */}
+              {presalePassesSold >= presalePassSupply && (
+                <div className="mt-4">
+                  <button
+                    disabled
+                    className="w-full font-bold py-4 px-8 rounded-lg text-lg cursor-not-allowed"
+                    style={{
+                      background: 'rgba(255, 193, 7, 0.2)',
+                      color: '#a0a0a0',
+                      border: '2px solid rgba(255, 193, 7, 0.3)',
+                      opacity: 0.5
+                    }}
+                  >
+                    🎫 Presale Pass (Sold Out)
+                  </button>
+                </div>
+              )}
+
+              {/* Not Connected Message */}
+              {!wallet.publicKey && presalePassesSold < presalePassSupply && (
+                <div className="mt-4 text-center text-sm" style={{ color: '#a0a0a0' }}>
+                  Connect wallet to purchase presale passes
+                </div>
+              )}
             </div>
 
             {/* Public Mint Progress */}
@@ -435,6 +656,101 @@ export default function MintPage() {
               </div>
             </div>
 
+            {/* Quantity Selector */}
+            {wallet.publicKey && eligibility?.eligible && (
+              <div 
+                className="rounded-xl p-6 border"
+                style={{
+                  background: 'rgba(139, 92, 246, 0.05)',
+                  borderColor: 'rgba(139, 92, 246, 0.3)',
+                  backdropFilter: 'blur(10px)'
+                }}
+              >
+                <label className="block text-sm font-bold mb-3" style={{ color: '#a0a0a0' }}>
+                  Quantity to Mint
+                </label>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setMintQuantity(Math.max(1, mintQuantity - 1))}
+                    disabled={isMinting || mintQuantity <= 1}
+                    className="w-12 h-12 rounded-lg font-bold text-xl transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                      color: '#ffffff'
+                    }}
+                  >
+                    -
+                  </button>
+                  
+                  <div className="flex-1 text-center">
+                    <div className="text-4xl font-bold" style={{ color: '#8B5CF6' }}>
+                      {mintQuantity}
+                    </div>
+                    <div className="text-sm mt-1" style={{ color: '#a0a0a0' }}>
+                      {eligibility?.remainingRedeems 
+                        ? `${eligibility.remainingRedeems} available`
+                        : 'NFTs'
+                      }
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => {
+                      const maxQty = Math.min(10, eligibility?.remainingRedeems || 10);
+                      setMintQuantity(Math.min(maxQty, mintQuantity + 1));
+                    }}
+                    disabled={isMinting || mintQuantity >= Math.min(10, eligibility?.remainingRedeems || 10)}
+                    className="w-12 h-12 rounded-lg font-bold text-xl transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                      color: '#ffffff'
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                  {[1, 5, 10].map(qty => {
+                    const maxQty = Math.min(10, eligibility?.remainingRedeems || 10);
+                    const isDisabled = qty > maxQty;
+                    return (
+                      <button
+                        key={qty}
+                        onClick={() => setMintQuantity(qty)}
+                        disabled={isMinting || isDisabled}
+                        className="flex-1 py-2 rounded-lg font-bold text-sm transition-all hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{
+                          background: mintQuantity === qty 
+                            ? 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)'
+                            : 'rgba(139, 92, 246, 0.2)',
+                          color: mintQuantity === qty ? '#ffffff' : '#8B5CF6',
+                          border: `2px solid ${mintQuantity === qty ? 'transparent' : 'rgba(139, 92, 246, 0.3)'}`
+                        }}
+                      >
+                        {qty}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => {
+                      const maxQty = Math.min(10, eligibility?.remainingRedeems || 10);
+                      setMintQuantity(maxQty);
+                    }}
+                    disabled={isMinting}
+                    className="flex-1 py-2 rounded-lg font-bold text-sm transition-all hover:scale-105"
+                    style={{
+                      background: 'rgba(139, 92, 246, 0.2)',
+                      color: '#8B5CF6',
+                      border: '2px solid rgba(139, 92, 246, 0.3)'
+                    }}
+                  >
+                    MAX
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Mint Buttons */}
             {wallet.publicKey && (
               <div className="grid grid-cols-2 gap-4">
@@ -456,7 +772,10 @@ export default function MintPage() {
                     border: 'none'
                   }}
                 >
-                  {isMinting && eligibility?.price === 0 ? 'Minting...' : '🎁 Free Mint'}
+                  {isMinting && eligibility?.price === 0 
+                    ? `Minting ${mintQuantity}...` 
+                    : `🎁 Free Mint ${mintQuantity > 1 ? `(${mintQuantity})` : ''}`
+                  }
                 </button>
 
                 {/* Public Mint Button */}
@@ -477,7 +796,10 @@ export default function MintPage() {
                     border: 'none'
                   }}
                 >
-                  {isMinting && eligibility?.price !== 0 ? 'Minting...' : `💎 Mint ${eligibility?.price || 0.5} SOL`}
+                  {isMinting && eligibility?.price !== 0 
+                    ? `Minting ${mintQuantity}...` 
+                    : `💎 Mint ${mintQuantity > 1 ? `${mintQuantity} x ` : ''}${(eligibility?.price || 0.5) * mintQuantity} SOL`
+                  }
                 </button>
               </div>
             )}
