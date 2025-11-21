@@ -44,6 +44,12 @@ next-env.d.ts
 !vercel.json
 !presale-snapshot.json
 
+# Admin scripts with hardcoded values (for local use only)
+update-cm-authority.mjs
+upload-config-lines-umi.mjs
+verify-new-cm.mjs
+wrap-cm-with-guard.mjs
+
 # Database
 *.db
 *.sqlite
