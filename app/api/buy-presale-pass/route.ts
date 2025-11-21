@@ -12,7 +12,7 @@ let TREASURY_WALLET: PublicKey;
 
 function getPresalePassMint(): PublicKey {
   if (!PRESALE_PASS_MINT) {
-    PRESALE_PASS_MINT = new PublicKey(process.env.NEXT_PUBLIC_PRESALE_PASS_MINT || 'Aj6dxxzsmDTVnn9QS6kXE7PLxXbzJqtwySeZ1eNWKHLq');
+    PRESALE_PASS_MINT = new PublicKey(process.env.NEXT_PUBLIC_PRESALE_PASS_MINT || '31bLEgYfLvrQ4e9nXvKMckUG6KQ3r5yhMwBHaJqrRhDm');
   }
   return PRESALE_PASS_MINT;
 }
