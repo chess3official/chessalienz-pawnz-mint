@@ -1,18 +1,17 @@
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
-import { 
-  createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID as METADATA_PROGRAM_ID 
-} from '@metaplex-foundation/mpl-token-metadata';
+import * as mplTokenMetadata from '@metaplex-foundation/mpl-token-metadata';
 import fs from 'fs';
+
+const { createCreateMetadataAccountV3Instruction, PROGRAM_ID: METADATA_PROGRAM_ID } = mplTokenMetadata;
 
 // Configuration
 const MAINNET_RPC = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const TOKEN_MINT = new PublicKey('31bLEgYfLvrQ4e9nXvKMckUG6KQ3r5yhMwBHaJqrRhDm');
 
-// Token Metadata - UPDATE THE IMAGE URL AFTER UPLOADING
+// Token Metadata
 const TOKEN_NAME = "PAWNZ PASS";
 const TOKEN_SYMBOL = "PWZP";
-const TOKEN_URI = ""; // IMPORTANT: Upload metadata JSON first and put URL here
+const TOKEN_URI = "https://amethyst-worrying-boar-710.mypinata.cloud/ipfs/bafkreiewox4qy6oncpfwtze4x4zxbbhwtewjbvbqhqpgtyy2c5lre4ewaa";
 
 async function addTokenMetadata() {
   console.log('🎨 Adding Metadata to PAWNZ PASS Token...\n');
@@ -55,14 +54,17 @@ async function addTokenMetadata() {
     process.exit(1);
   }
 
+  // Metaplex Token Metadata Program ID
+  const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+  
   // Derive metadata PDA
   const [metadataPDA] = PublicKey.findProgramAddressSync(
     [
       Buffer.from('metadata'),
-      METADATA_PROGRAM_ID.toBuffer(),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
       TOKEN_MINT.toBuffer(),
     ],
-    METADATA_PROGRAM_ID
+    TOKEN_METADATA_PROGRAM_ID
   );
 
   console.log('\n📝 Creating Token Metadata...');

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
 
 const PRESALE_PASS_MINT = new PublicKey(process.env.NEXT_PUBLIC_PRESALE_PASS_MINT || '31bLEgYfLvrQ4e9nXvKMckUG6KQ3r5yhMwBHaJqrRhDm');
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const TREASURY_WALLET = process.env.TREASURY_WALLET ? new PublicKey(process.env.TREASURY_WALLET) : null;
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,44 +14,29 @@ export async function GET(request: NextRequest) {
     const mintInfo = await connection.getTokenSupply(PRESALE_PASS_MINT);
     const totalSupply = mintInfo.value.uiAmount || 0;
 
-    // Get all token accounts to count distributed passes
-    const accounts = await connection.getProgramAccounts(TOKEN_PROGRAM_ID, {
-      filters: [
-        {
-          dataSize: 165, // Token account size
-        },
-        {
-          memcmp: {
-            offset: 0, // Mint address offset
-            bytes: PRESALE_PASS_MINT.toBase58(),
-          },
-        },
-      ],
-    });
-
-    let totalDistributed = 0;
-    let uniqueHolders = 0;
-
-    for (const account of accounts) {
+    // Get treasury wallet's token balance (tokens available for sale)
+    let remaining = 0;
+    if (TREASURY_WALLET) {
       try {
-        const accountInfo = await connection.getTokenAccountBalance(account.pubkey);
-        const balance = accountInfo.value.uiAmount || 0;
-        
-        if (balance > 0) {
-          totalDistributed += balance;
-          uniqueHolders++;
-        }
+        const treasuryTokenAccount = await getAssociatedTokenAddress(
+          PRESALE_PASS_MINT,
+          TREASURY_WALLET
+        );
+        const treasuryBalance = await connection.getTokenAccountBalance(treasuryTokenAccount);
+        remaining = treasuryBalance.value.uiAmount || 0;
       } catch (error) {
-        console.error('Error reading token account:', error);
+        console.error('Error reading treasury balance:', error);
+        remaining = 0;
       }
     }
+
+    const totalDistributed = totalSupply - remaining;
 
     return NextResponse.json({
       totalSupply,
       totalDistributed,
-      uniqueHolders,
-      remaining: Math.max(0, totalSupply - totalDistributed),
-      soldOut: totalDistributed >= totalSupply,
+      remaining,
+      soldOut: remaining === 0,
     });
   } catch (error: any) {
     console.error('Presale stats error:', error);
