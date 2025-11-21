@@ -542,28 +542,22 @@ export default function MintPage() {
                       </button>
                     </div>
                     
-                    <div className="mt-2 flex gap-2">
-                      {[1, 5, 10].map(qty => {
-                        const maxQty = Math.min(10, presalePassSupply - presalePassesSold);
-                        const isDisabled = qty > maxQty;
-                        return (
-                          <button
-                            key={qty}
-                            onClick={() => setTokenPurchaseQuantity(qty)}
-                            disabled={isPurchasing || isDisabled}
-                            className="flex-1 py-1 rounded-lg font-bold text-xs transition-all hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed"
-                            style={{
-                              background: tokenPurchaseQuantity === qty 
-                                ? 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)'
-                                : 'rgba(255, 193, 7, 0.2)',
-                              color: tokenPurchaseQuantity === qty ? '#000000' : '#FFC107',
-                              border: `2px solid ${tokenPurchaseQuantity === qty ? 'transparent' : 'rgba(255, 193, 7, 0.3)'}`
-                            }}
-                          >
-                            {qty}
-                          </button>
-                        );
-                      })}
+                    <div className="mt-2">
+                      <button
+                        onClick={() => {
+                          const maxQty = Math.min(10, presalePassSupply - presalePassesSold);
+                          setTokenPurchaseQuantity(maxQty);
+                        }}
+                        disabled={isPurchasing}
+                        className="w-full py-2 rounded-lg font-bold text-sm transition-all hover:scale-105"
+                        style={{
+                          background: 'rgba(255, 193, 7, 0.2)',
+                          color: '#FFC107',
+                          border: '2px solid rgba(255, 193, 7, 0.3)'
+                        }}
+                      >
+                        MAX
+                      </button>
                     </div>
                   </div>
 
@@ -625,7 +619,7 @@ export default function MintPage() {
               )}
             </div>
 
-            {/* Public Mint Progress */}
+            {/* Public Mint Progress & Quantity Selector Combined */}
             <div 
               className="rounded-xl p-6 border transition-all duration-300"
               style={{
@@ -655,21 +649,13 @@ export default function MintPage() {
                 {mintedCount > 0 && mintedCount < totalSupply && `${totalSupply - mintedCount} remaining`}
                 {mintedCount === totalSupply && "🎉 Collection Sold Out!"}
               </div>
-            </div>
 
-            {/* Quantity Selector */}
-            {wallet.publicKey && (eligibility?.hasPass || eligibility?.eligible) && (
-              <div 
-                className="rounded-xl p-6 border"
-                style={{
-                  background: 'rgba(139, 92, 246, 0.05)',
-                  borderColor: 'rgba(139, 92, 246, 0.3)',
-                  backdropFilter: 'blur(10px)'
-                }}
-              >
-                <label className="block text-sm font-bold mb-3" style={{ color: '#a0a0a0' }}>
-                  Quantity to Mint
-                </label>
+              {/* Quantity Selector */}
+              {wallet.publicKey && (eligibility?.hasPass || eligibility?.eligible) && (
+                <div className="mt-6 pt-6 border-t" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                  <label className="block text-sm font-bold mb-3" style={{ color: '#10B981' }}>
+                    Quantity to Mint
+                  </label>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setMintQuantity(Math.max(1, mintQuantity - 1))}
@@ -711,35 +697,14 @@ export default function MintPage() {
                   </button>
                 </div>
                 
-                <div className="mt-4 flex gap-2">
-                  {[1, 5, 10].map(qty => {
-                    const maxQty = Math.min(10, eligibility?.remainingRedeems || 10);
-                    const isDisabled = qty > maxQty;
-                    return (
-                      <button
-                        key={qty}
-                        onClick={() => setMintQuantity(qty)}
-                        disabled={isMinting || isDisabled}
-                        className="flex-1 py-2 rounded-lg font-bold text-sm transition-all hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed"
-                        style={{
-                          background: mintQuantity === qty 
-                            ? 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)'
-                            : 'rgba(139, 92, 246, 0.2)',
-                          color: mintQuantity === qty ? '#ffffff' : '#8B5CF6',
-                          border: `2px solid ${mintQuantity === qty ? 'transparent' : 'rgba(139, 92, 246, 0.3)'}`
-                        }}
-                      >
-                        {qty}
-                      </button>
-                    );
-                  })}
+                <div className="mt-4">
                   <button
                     onClick={() => {
                       const maxQty = Math.min(10, eligibility?.remainingRedeems || 10);
                       setMintQuantity(maxQty);
                     }}
                     disabled={isMinting}
-                    className="flex-1 py-2 rounded-lg font-bold text-sm transition-all hover:scale-105"
+                    className="w-full py-2 rounded-lg font-bold text-sm transition-all hover:scale-105"
                     style={{
                       background: 'rgba(139, 92, 246, 0.2)',
                       color: '#8B5CF6',
@@ -750,7 +715,8 @@ export default function MintPage() {
                   </button>
                 </div>
               </div>
-            )}
+              )}
+            </div>
 
             {/* Mint Buttons */}
             {wallet.publicKey && (
