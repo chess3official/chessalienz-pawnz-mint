@@ -2,11 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction, getAccount } from '@solana/spl-token';
 
-const PRESALE_PASS_MINT = new PublicKey(process.env.NEXT_PUBLIC_PRESALE_PASS_MINT || 'Aj6dxxzsmDTVnn9QS6kXE7PLxXbzJqtwySeZ1eNWKHLq');
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const TREASURY_WALLET = new PublicKey(process.env.TREASURY_WALLET || ''); // Your wallet to receive payments
 const TOKEN_PRICE = parseFloat(process.env.PRESALE_PASS_PRICE || '0.1'); // Price per token in SOL
 const MAX_PER_TRANSACTION = 10;
+
+// Lazy load these to avoid build-time errors
+let PRESALE_PASS_MINT: PublicKey;
+let TREASURY_WALLET: PublicKey;
+
+function getPresalePassMint(): PublicKey {
+  if (!PRESALE_PASS_MINT) {
+    PRESALE_PASS_MINT = new PublicKey(process.env.NEXT_PUBLIC_PRESALE_PASS_MINT || 'Aj6dxxzsmDTVnn9QS6kXE7PLxXbzJqtwySeZ1eNWKHLq');
+  }
+  return PRESALE_PASS_MINT;
+}
+
+function getTreasuryWallet(): PublicKey | null {
+  if (!process.env.TREASURY_WALLET) {
+    return null;
+  }
+  if (!TREASURY_WALLET) {
+    TREASURY_WALLET = new PublicKey(process.env.TREASURY_WALLET);
+  }
+  return TREASURY_WALLET;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +46,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!TREASURY_WALLET || TREASURY_WALLET.toString() === '') {
+    const treasuryWallet = getTreasuryWallet();
+    if (!treasuryWallet) {
       return NextResponse.json(
         { error: 'Treasury wallet not configured' },
         { status: 500 }
@@ -36,11 +56,12 @@ export async function POST(request: NextRequest) {
 
     const connection = new Connection(RPC_URL, 'confirmed');
     const buyerPubkey = new PublicKey(buyerWallet);
+    const presalePassMint = getPresalePassMint();
 
     // Check if tokens are available
     const treasuryTokenAccount = await getAssociatedTokenAddress(
-      PRESALE_PASS_MINT,
-      TREASURY_WALLET
+      presalePassMint,
+      treasuryWallet
     );
 
     let availableTokens = 0;
@@ -67,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Get buyer's token account (or create instruction for it)
     const buyerTokenAccount = await getAssociatedTokenAddress(
-      PRESALE_PASS_MINT,
+      presalePassMint,
       buyerPubkey
     );
 
@@ -78,7 +99,7 @@ export async function POST(request: NextRequest) {
     transaction.add(
       SystemProgram.transfer({
         fromPubkey: buyerPubkey,
-        toPubkey: TREASURY_WALLET,
+        toPubkey: treasuryWallet,
         lamports: totalLamports,
       })
     );
