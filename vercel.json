@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_MINT_PHASE": "CLOSED",
+    "NEXT_PUBLIC_PUBLIC_MINT_PRICE": "0.5",
+    "NEXT_PUBLIC_USE_SNAPSHOT": "true",
+    "NEXT_PUBLIC_COLLECTION_MINT": "4K74nmy4E7KprxmDTp9hkWkC4RkBHtkdzvVrDhMHY47C",
+    "NEXT_PUBLIC_COLLECTION_NAME": "Chessalienz: Pawnz",
+    "NEXT_PUBLIC_COLLECTION_SYMBOL": "PAWNZ",
+    "NEXT_PUBLIC_RPC_URL": "https://mainnet.helius-rpc.com/?api-key=ef6ce033-5e56-4193-b6d8-58acadaea81c"
+  }
+}
