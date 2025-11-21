@@ -360,15 +360,16 @@ export default function MintPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Wallet Connection */}
               <div 
-                className="rounded-xl p-6 border transition-all duration-300"
+                className="rounded-xl p-6 border transition-all duration-300 relative"
                 style={{
                   background: 'rgba(139, 92, 246, 0.05)',
                   borderColor: 'rgba(139, 92, 246, 0.3)',
-                  backdropFilter: 'blur(10px)'
+                  backdropFilter: 'blur(10px)',
+                  zIndex: 50
                 }}
               >
                 <h2 className="text-xl font-bold mb-4" style={{ color: '#ffffff' }}>Wallet Connection</h2>
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center relative z-50">
                   <WalletMultiButtonDynamic />
                   {wallet.publicKey && (
                     <div className="mt-4 text-center">
@@ -657,7 +658,7 @@ export default function MintPage() {
             </div>
 
             {/* Quantity Selector */}
-            {wallet.publicKey && eligibility?.eligible && (
+            {wallet.publicKey && (eligibility?.hasPass || eligibility?.eligible) && (
               <div 
                 className="rounded-xl p-6 border"
                 style={{
