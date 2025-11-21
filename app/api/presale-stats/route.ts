@@ -16,17 +16,27 @@ export async function GET(request: NextRequest) {
 
     // Get treasury wallet's token balance (tokens available for sale)
     let remaining = 0;
-    if (TREASURY_WALLET) {
+    let treasuryAddress = 'Not set';
+    
+    if (!TREASURY_WALLET) {
+      console.error('TREASURY_WALLET environment variable not set');
+      // If no treasury wallet, assume all tokens are available (none sold yet)
+      remaining = totalSupply;
+    } else {
+      treasuryAddress = TREASURY_WALLET.toString();
       try {
         const treasuryTokenAccount = await getAssociatedTokenAddress(
           PRESALE_PASS_MINT,
           TREASURY_WALLET
         );
+        console.log('Treasury token account:', treasuryTokenAccount.toString());
         const treasuryBalance = await connection.getTokenAccountBalance(treasuryTokenAccount);
         remaining = treasuryBalance.value.uiAmount || 0;
-      } catch (error) {
-        console.error('Error reading treasury balance:', error);
-        remaining = 0;
+        console.log('Treasury balance:', remaining);
+      } catch (error: any) {
+        console.error('Error reading treasury balance:', error.message);
+        // If token account doesn't exist yet, assume all tokens are still available
+        remaining = totalSupply;
       }
     }
 
@@ -37,6 +47,7 @@ export async function GET(request: NextRequest) {
       totalDistributed,
       remaining,
       soldOut: remaining === 0,
+      treasuryAddress,
     });
   } catch (error: any) {
     console.error('Presale stats error:', error);
