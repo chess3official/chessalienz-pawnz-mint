@@ -30,3 +30,19 @@ body {
 .wallet-adapter-modal-wrapper {
   z-index: 9999 !important;
 }
+
+/* Wallet Adapter Dropdown Menu */
+.wallet-adapter-dropdown {
+  z-index: 9999 !important;
+}
+
+.wallet-adapter-dropdown-list {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+/* Ensure wallet button container has high z-index */
+.wallet-adapter-button-trigger {
+  z-index: 9999 !important;
+  position: relative !important;
+}

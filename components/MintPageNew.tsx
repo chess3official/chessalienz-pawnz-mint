@@ -355,9 +355,9 @@ export default function MintPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* LEFT COLUMN */}
-          <div className="space-y-6">
+          <div className="space-y-6 relative z-10">
             {/* Wallet Connection & Info - Inline */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-50">
               {/* Wallet Connection */}
               <div 
                 className="rounded-xl p-6 border transition-all duration-300 relative"
@@ -365,11 +365,11 @@ export default function MintPage() {
                   background: 'rgba(139, 92, 246, 0.05)',
                   borderColor: 'rgba(139, 92, 246, 0.3)',
                   backdropFilter: 'blur(10px)',
-                  zIndex: 50
+                  zIndex: 100
                 }}
               >
                 <h2 className="text-xl font-bold mb-4" style={{ color: '#ffffff' }}>Wallet Connection</h2>
-                <div className="flex flex-col items-center relative z-50">
+                <div className="flex flex-col items-center relative" style={{ zIndex: 100 }}>
                   <WalletMultiButtonDynamic />
                   {wallet.publicKey && (
                     <div className="mt-4 text-center">
