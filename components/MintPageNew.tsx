@@ -576,7 +576,7 @@ export default function MintPage() {
                   >
                     {isPurchasing 
                       ? 'Processing...' 
-                      : `🎫 Buy ${tokenPurchaseQuantity} Pass${tokenPurchaseQuantity > 1 ? 'es' : ''} (${(tokenPurchaseQuantity * 0.1).toFixed(1)} SOL)`
+                      : `🎫 Buy ${tokenPurchaseQuantity} Pass${tokenPurchaseQuantity > 1 ? 'es' : ''} (${tokenPurchaseQuantity * 2} SOL)`
                     }
                   </button>
 

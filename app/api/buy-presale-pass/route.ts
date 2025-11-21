@@ -3,7 +3,7 @@ import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } f
 import { getAssociatedTokenAddress, createTransferInstruction, getAccount } from '@solana/spl-token';
 
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const TOKEN_PRICE = parseFloat(process.env.PRESALE_PASS_PRICE || '0.1'); // Price per token in SOL
+const TOKEN_PRICE = parseFloat(process.env.PRESALE_PASS_PRICE || '2'); // Price per token in SOL
 const MAX_PER_TRANSACTION = 10;
 
 // Lazy load these to avoid build-time errors
