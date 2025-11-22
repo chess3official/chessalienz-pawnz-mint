@@ -765,7 +765,7 @@ export default function MintPage() {
                 >
                   {isMinting && eligibility?.price !== 0 
                     ? `Minting ${mintQuantity}...` 
-                    : `💎 Mint ${mintQuantity > 1 ? `${mintQuantity} x ` : ''}${(eligibility?.price || 0.5) * mintQuantity} SOL`
+                    : `💎 Mint ${mintQuantity > 1 ? `${mintQuantity} x ` : ''}${(eligibility?.price || 3) * mintQuantity} SOL`
                   }
                 </button>
               </div>
